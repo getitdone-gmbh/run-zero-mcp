@@ -4,6 +4,7 @@ Deploy web apps, APIs and Postgres databases straight from your AI agent. [run.z
 
 - Endpoint: `https://api.run-zero.de/mcp` (Streamable HTTP)
 - Sign-in: OAuth 2.1 with PKCE and dynamic client registration. No API key to copy.
+- Discovery: `initialize` and `tools/list` answer without sign-in, so you can see every tool first. Tool calls need sign-in.
 - Registry name: `de.run-zero/mcp` in the [official MCP Registry](https://registry.modelcontextprotocol.io)
 
 ## What your agent can do

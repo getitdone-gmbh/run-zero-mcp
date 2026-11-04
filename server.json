@@ -3,7 +3,7 @@
   "name": "de.run-zero/mcp",
   "title": "run.zero",
   "description": "Deploy apps, APIs and Postgres from your AI agent. EU PaaS hosted in Germany, OAuth sign-in.",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "websiteUrl": "https://run-zero.de/en/features/mcp",
   "remotes": [
     {
@@ -14,5 +14,21 @@
   "repository": {
     "url": "https://github.com/getitdone-gmbh/run-zero-mcp",
     "source": "github"
-  }
+  },
+  "icons": [
+    {
+      "src": "https://run-zero.de/icon-512.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    },
+    {
+      "src": "https://run-zero.de/icon-192.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "192x192"
+      ]
+    }
+  ]
 }
