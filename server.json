@@ -1,0 +1,18 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "de.run-zero/mcp",
+  "title": "run.zero",
+  "description": "Deploy apps, APIs and Postgres from your AI agent. EU PaaS hosted in Germany, OAuth sign-in.",
+  "version": "1.0.1",
+  "websiteUrl": "https://run-zero.de/en/features/mcp",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://api.run-zero.de/mcp"
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/getitdone-gmbh/run-zero-mcp",
+    "source": "github"
+  }
+}
