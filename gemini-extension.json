@@ -1,0 +1,10 @@
+{
+  "name": "run-zero",
+  "version": "1.0.2",
+  "description": "Deploy apps, APIs and Postgres from your AI agent. EU PaaS hosted in Germany, OAuth sign-in.",
+  "mcpServers": {
+    "run-zero": {
+      "httpUrl": "https://api.run-zero.de/mcp"
+    }
+  }
+}

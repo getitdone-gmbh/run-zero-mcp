@@ -55,6 +55,12 @@ Settings, Connectors, Add custom connector, URL `https://api.run-zero.de/mcp`.
 code --add-mcp '{"name":"run-zero","type":"http","url":"https://api.run-zero.de/mcp"}'
 ```
 
+### Gemini CLI
+
+```sh
+gemini extensions install https://github.com/getitdone-gmbh/run-zero-mcp
+```
+
 ## Try it
 
 Ask your agent:
