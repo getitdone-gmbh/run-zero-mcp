@@ -1,0 +1,125 @@
+# Changesets: every PR adds a file in .changeset/ (job changeset), main collects them in the PR "Version Packages" (job version).
+# Merging the Version PR lands the new version in package.json and CHANGELOG.md; the next run on main tags v<version>.
+# The tag only marks the version; deploys keep running on every push as before, nothing is published.
+# Version PR token: secrets.CHANGESETS_TOKEN or secrets.ITDONE_PUSH_TOKEN (PAT with contents and pull-requests write). The workflow token
+# may not open PRs here, so without a PAT the job only leaves a notice; then run `GITHUB_TOKEN=$(gh auth token) npm run version-packages`
+# on the branch changeset-release/main and open the PR "Version Packages" by hand.
+# Only the changesets CLI is installed (exact versions from the lockfile), not the whole dependency tree.
+name: Changesets
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [main]
+
+concurrency:
+  group: changesets-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  changeset:
+    # the Version PR consumes changesets instead of adding one
+    if: github.event_name == 'pull_request' && github.event.pull_request.draft == false && !startsWith(github.head_ref, 'changeset-release/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install the changesets CLI
+        run: |
+          DIR="$RUNNER_TEMP/changesets"
+          pin() { node -e '
+            const fs = require("fs"), n = process.argv[1];
+            let v;
+            try { v = JSON.parse(fs.readFileSync("package-lock.json", "utf8")).packages["node_modules/" + n].version; } catch {}
+            if (!v) try { v = fs.readFileSync("yarn.lock", "utf8").split("\n\n").find((b) => b.includes(n + "@")).match(/version "([^"]+)"/)[1]; } catch {}
+            console.log(v || (require("./package.json").devDependencies || {})[n] || process.argv[2]);
+          ' "$1" "$2"; }
+          CLI=$(pin @changesets/cli 3.0.3); LOG=$(pin @changesets/changelog-github 1.0.1)
+          mkdir -p "$DIR" node_modules/@changesets node_modules/.bin
+          echo '{"private":true}' > "$DIR/package.json"
+          (cd "$DIR" && npm install --no-save --no-package-lock --ignore-scripts --no-audit --no-fund --registry=https://registry.npmjs.org/ "@changesets/cli@$CLI" "@changesets/changelog-github@$LOG")
+          ln -sfn "$DIR/node_modules/@changesets/cli" node_modules/@changesets/cli
+          ln -sfn "$DIR/node_modules/@changesets/changelog-github" node_modules/@changesets/changelog-github
+          ln -sfn "$DIR/node_modules/.bin/changeset" node_modules/.bin/changeset
+      - name: PR adds a changeset
+        env:
+          BASE: ${{ github.event.pull_request.base.ref }}
+        run: |
+          ADDED=$(git diff --name-only --diff-filter=A "origin/$BASE...HEAD" -- '.changeset/*.md' | grep -v '^\.changeset/README\.md$' || true)
+          if [ -z "$ADDED" ]; then
+            echo "::error::This PR has no changeset. Add one with 'npx changeset', or 'npx changeset --empty' for tooling-only changes (CI, scripts, docs, tests)."
+            exit 1
+          fi
+          echo "$ADDED"
+          node node_modules/@changesets/cli/bin.js status --since="origin/$BASE"
+
+  version:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      # only whether a PAT exists; the token itself goes to the one step that needs it
+      HAS_PR_TOKEN: ${{ secrets.CHANGESETS_TOKEN != '' || secrets.ITDONE_PUSH_TOKEN != '' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # every version in package.json gets its tag once, on the commit that set it; a run that was cancelled or failed is caught up by the next push
+      - name: Tag a new version
+        id: tag
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
+            echo "tagged=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          COMMIT=$(git log -n1 --format=%H -G'^  "version": ' -- package.json)
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898333+github-actions[bot]@users.noreply.github.com'
+          git tag -a "v$VERSION" -m "v$VERSION" "${COMMIT:-HEAD}"
+          git push origin "v$VERSION"
+          echo "tagged=true" >> "$GITHUB_OUTPUT"; echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+      - name: Install the changesets CLI
+        if: env.HAS_PR_TOKEN == 'true'
+        run: |
+          DIR="$RUNNER_TEMP/changesets"
+          pin() { node -e '
+            const fs = require("fs"), n = process.argv[1];
+            let v;
+            try { v = JSON.parse(fs.readFileSync("package-lock.json", "utf8")).packages["node_modules/" + n].version; } catch {}
+            if (!v) try { v = fs.readFileSync("yarn.lock", "utf8").split("\n\n").find((b) => b.includes(n + "@")).match(/version "([^"]+)"/)[1]; } catch {}
+            console.log(v || (require("./package.json").devDependencies || {})[n] || process.argv[2]);
+          ' "$1" "$2"; }
+          CLI=$(pin @changesets/cli 3.0.3); LOG=$(pin @changesets/changelog-github 1.0.1)
+          mkdir -p "$DIR" node_modules/@changesets node_modules/.bin
+          echo '{"private":true}' > "$DIR/package.json"
+          (cd "$DIR" && npm install --no-save --no-package-lock --ignore-scripts --no-audit --no-fund --registry=https://registry.npmjs.org/ "@changesets/cli@$CLI" "@changesets/changelog-github@$LOG")
+          ln -sfn "$DIR/node_modules/@changesets/cli" node_modules/@changesets/cli
+          ln -sfn "$DIR/node_modules/@changesets/changelog-github" node_modules/@changesets/changelog-github
+          ln -sfn "$DIR/node_modules/.bin/changeset" node_modules/.bin/changeset
+      - name: Create or update the Version PR
+        if: env.HAS_PR_TOKEN == 'true'
+        uses: changesets/action@66d7d1ddafddf1ef45f98ee51a7496f9cdadb2f4 # v2.1.2
+        with:
+          github-token: ${{ secrets.CHANGESETS_TOKEN || secrets.ITDONE_PUSH_TOKEN }}
+          version-script: npm run -s version-packages
+      - name: Version PR needs a PAT
+        if: env.HAS_PR_TOKEN != 'true'
+        run: |
+          # only changesets with a bump count, empty ones wait for the next release without a notice
+          if grep -lsE '^"?[^"]+"?:[[:space:]]*(patch|minor|major)[[:space:]]*$' .changeset/*.md >/dev/null; then
+            echo "::notice::Changesets with a version bump wait on main. Without secrets.CHANGESETS_TOKEN no Version PR is opened; run 'GITHUB_TOKEN=\$(gh auth token) npm run version-packages' on the branch changeset-release/main and open the PR 'Version Packages'."
+          fi

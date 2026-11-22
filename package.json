@@ -1,0 +1,15 @@
+{
+  "name": "run-zero-mcp",
+  "version": "1.0.2",
+  "private": true,
+  "description": "Listing of the run.zero MCP server (server.json, gemini-extension.json); this manifest only carries the version and the changesets tooling",
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "@changesets/changelog-github": "^1.0.1",
+    "@changesets/cli": "^3.0.3"
+  },
+  "scripts": {
+    "changeset": "changeset",
+    "version-packages": "changeset version && node -e \"const fs=require('fs');const l=JSON.parse(fs.readFileSync('package-lock.json','utf8'));l.version=l.packages[''].version=require('./package.json').version;fs.writeFileSync('package-lock.json',JSON.stringify(l,null,2)+'\\n')\" && node -e \"const fs=require('fs');const v=require('./package.json').version;for(const f of ['server.json','gemini-extension.json']){const j=JSON.parse(fs.readFileSync(f,'utf8'));j.version=v;fs.writeFileSync(f,JSON.stringify(j,null,2)+'\\n')}\""
+  }
+}
